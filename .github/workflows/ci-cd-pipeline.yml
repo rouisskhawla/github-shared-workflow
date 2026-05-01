@@ -24,9 +24,6 @@ on:
       DOCKER_PASSWORD:
         required: true
 
-      SONAR_TOKEN:
-        required: true
-
       SLACK_WEBHOOK:
         required: true
 
