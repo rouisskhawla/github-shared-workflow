@@ -1,0 +1,47 @@
+name: Reusable CI CD Pipeline
+
+on:
+  workflow_call:
+    inputs:
+
+      service-name:
+        required: true
+        type: string
+
+      docker-image:
+        required: true
+        type: string
+
+      java-version:
+        required: false
+        type: string
+        default: '17'
+
+    secrets:
+      DOCKER_USERNAME:
+        required: true
+
+      DOCKER_PASSWORD:
+        required: true
+
+      SONAR_TOKEN:
+        required: true
+
+      SLACK_WEBHOOK:
+        required: true
+
+jobs:
+  build:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ inputs.java-version }}
+          distribution: temurin
+          cache: maven
+
+      - name: Build
+        run: mvn clean package -DskipTests
