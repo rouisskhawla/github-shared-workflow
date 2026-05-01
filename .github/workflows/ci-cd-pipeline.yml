@@ -24,9 +24,6 @@ on:
       DOCKER_PASSWORD:
         required: true
 
-      SLACK_WEBHOOK:
-        required: true
-
 jobs:
   build:
     runs-on: self-hosted
