@@ -3,32 +3,45 @@ name: Reusable CI CD Pipeline
 on:
   workflow_call:
     inputs:
-
       service-name:
         required: true
         type: string
-
       docker-image:
         required: true
         type: string
-
+      service-dir:
+        required: true
+        type: string
       java-version:
         required: false
         type: string
         default: '17'
-
     secrets:
       DOCKER_USERNAME:
         required: true
-
       DOCKER_PASSWORD:
         required: true
 
 jobs:
   build:
     runs-on: self-hosted
+    outputs:
+      image-tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v3
+
+      - name: Compute version
+        id: version
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          BUILD_NUMBER=${{ github.run_number }}
+          if [ "${{ github.ref_name }}" == "dev" ]; then
+            TAG="1.0.${BUILD_NUMBER}-dev-${SHORT_SHA}"
+          else
+            TAG="1.0.${BUILD_NUMBER}-${SHORT_SHA}"
+          fi
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "Computed version: ${TAG}"
 
       - name: Set up JDK
         uses: actions/setup-java@v3
@@ -38,4 +51,22 @@ jobs:
           cache: maven
 
       - name: Build
+        working-directory: ${{ inputs.service-dir }}
         run: mvn clean package -DskipTests
+
+      - name: Docker login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Docker build and push
+        working-directory: ${{ inputs.service-dir }}
+        run: |
+          docker build -t ${{ inputs.docker-image }}:${{ steps.version.outputs.tag }} .
+          docker push ${{ inputs.docker-image }}:${{ steps.version.outputs.tag }}
+          if [ "${{ github.ref_name }}" == "main" ]; then
+            docker tag ${{ inputs.docker-image }}:${{ steps.version.outputs.tag }} \
+                       ${{ inputs.docker-image }}:latest
+            docker push ${{ inputs.docker-image }}:latest
+          fi
