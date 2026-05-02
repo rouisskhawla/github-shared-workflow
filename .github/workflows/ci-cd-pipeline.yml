@@ -21,6 +21,10 @@ on:
         required: true
       DOCKER_PASSWORD:
         required: true
+      KUBECONFIG_DEV:
+        required: true
+      KUBECONFIG_PROD:
+        required: true
 
 jobs:
   build:
@@ -70,3 +74,63 @@ jobs:
                        ${{ inputs.docker-image }}:latest
             docker push ${{ inputs.docker-image }}:latest
           fi
+  deploy:
+    runs-on: self-hosted
+    needs: build
+    environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set deploy variables
+        id: vars
+        run: |
+          if [ "${{ github.ref_name }}" == "main" ]; then
+            echo "namespace=prod"            >> $GITHUB_OUTPUT
+            echo "values-file=values-prod.yaml" >> $GITHUB_OUTPUT
+            echo "env-name=PRODUCTION"       >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref_name }}" == "dev" ]; then
+            echo "namespace=dev"             >> $GITHUB_OUTPUT
+            echo "values-file=values-dev.yaml"  >> $GITHUB_OUTPUT
+            echo "env-name=DEVELOPMENT"      >> $GITHUB_OUTPUT
+          else
+            echo "Unsupported branch: ${{ github.ref_name }}"
+            exit 1
+          fi
+
+      - name: Set up kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          if [ "${{ github.ref_name }}" == "main" ]; then
+            echo "${{ secrets.KUBECONFIG_PROD }}" | base64 -d > $HOME/.kube/config
+          else
+            echo "${{ secrets.KUBECONFIG_DEV }}"  | base64 -d > $HOME/.kube/config
+          fi
+          chmod 600 $HOME/.kube/config
+
+      - name: Verify cluster connection
+        run: kubectl cluster-info
+
+      - name: Create namespace if not exists
+        run: |
+          kubectl create namespace ${{ steps.vars.outputs.namespace }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Helm deploy
+        run: |
+          helm upgrade --install ${{ inputs.service-name }} charts/microservice \
+            -f helm-values/${{ inputs.service-name }}/${{ steps.vars.outputs.values-file }} \
+            --set global.imageTag=${{ needs.build.outputs.image-tag }} \
+            --namespace ${{ steps.vars.outputs.namespace }} \
+            --create-namespace
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/${{ inputs.service-name }} \
+            -n ${{ steps.vars.outputs.namespace }} \
+            --timeout=5m
+
+      - name: Deployment status
+        run: |
+          kubectl get pods    -n ${{ steps.vars.outputs.namespace }}
+          kubectl get svc     -n ${{ steps.vars.outputs.namespace }}
+          kubectl get ingress -n ${{ steps.vars.outputs.namespace }}
