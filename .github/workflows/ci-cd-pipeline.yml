@@ -16,6 +16,11 @@ on:
         required: false
         type: string
         default: '17'
+      service-type:
+        required: false
+        type: string
+        default: 'backend'
+
     secrets:
       DOCKER_USERNAME:
         required: true
@@ -46,17 +51,40 @@ jobs:
           fi
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
           echo "Computed version: ${TAG}"
-
+      
       - name: Set up JDK
-        uses: actions/setup-java@v3
+        if: inputs.service-type == 'backend'
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ inputs.java-version }}
           distribution: temurin
           cache: maven
 
-      - name: Build
+      - name: Build (backend)
+        if: inputs.service-type == 'backend'
         working-directory: ${{ inputs.service-dir }}
         run: mvn clean package -DskipTests
+
+      - name: Build (frontend)
+        if: inputs.service-type == 'frontend'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install dependencies (frontend)
+        if: inputs.service-type == 'frontend'
+        working-directory: ${{ inputs.service-dir }}
+        run: npm ci
+
+      - name: Build frontend dev
+        if: inputs.service-type == 'frontend' && github.ref_name == 'dev'
+        working-directory: ${{ inputs.service-dir }}
+        run: npm run build -- --configuration development
+
+      - name: Build frontend prod
+        if: inputs.service-type == 'frontend' && github.ref_name != 'dev'
+        working-directory: ${{ inputs.service-dir }}
+        run: npm run build -- --configuration production
 
       - name: Docker login
         uses: docker/login-action@v3
