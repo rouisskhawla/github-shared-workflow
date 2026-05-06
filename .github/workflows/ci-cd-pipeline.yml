@@ -128,9 +128,9 @@ jobs:
         run: |
           mkdir -p $HOME/.kube
           if [ "${{ github.ref_name }}" == "main" ]; then
-            echo "${{ secrets.KUBECONFIG_PROD }}" | base64 -d > $HOME/.kube/config
+            echo "${{ secrets.KUBECONFIG_PROD }}" > $HOME/.kube/config
           else
-            echo "${{ secrets.KUBECONFIG_DEV }}"  | base64 -d > $HOME/.kube/config
+            echo "${{ secrets.KUBECONFIG_DEV }}"  > $HOME/.kube/config
           fi
           chmod 600 $HOME/.kube/config
 
