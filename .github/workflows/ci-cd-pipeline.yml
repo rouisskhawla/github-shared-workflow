@@ -161,3 +161,19 @@ jobs:
           kubectl get pods    -n ${{ steps.vars.outputs.namespace }}
           kubectl get svc     -n ${{ steps.vars.outputs.namespace }}
           kubectl get ingress -n ${{ steps.vars.outputs.namespace }}
+        
+      - name: Slack Notification
+        if: always()
+        run: |
+          STATUS="SUCCESS"
+          if [ "${{ job.status }}" != "success" ]; then
+            STATUS="FAILED"
+          fi
+
+          curl -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
+            -H "Content-type: application/json; charset=utf-8" \
+            --data "{
+              \"channel\": \"${{ secrets.SLACK_CHANNEL_ID }}\",
+              \"text\": \"*Deployment ${STATUS}*\\nService: ${{ inputs.service-name }}\\nEnvironment: ${{ steps.vars.outputs.env-name }}\\nNamespace: ${{ steps.vars.outputs.namespace }}\\nImage Tag: ${{ needs.build.outputs.image-tag }}\\nBranch: ${{ github.ref_name }}\"
+            }"
