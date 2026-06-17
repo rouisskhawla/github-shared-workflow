@@ -211,14 +211,22 @@ jobs:
         if: always()
         run: |
           STATUS="SUCCESS"
+          COLOR="#36a64f"
+      
           if [ "${{ job.status }}" != "success" ]; then
             STATUS="FAILED"
+            COLOR="#ff0000"
           fi
-
+      
           curl -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
             -H "Content-type: application/json; charset=utf-8" \
             --data "{
               \"channel\": \"${{ secrets.SLACK_CHANNEL_ID }}\",
-              \"text\": \"*Deployment ${STATUS}*\\nService: ${{ inputs.service-name }}\\nEnvironment: ${{ steps.vars.outputs.env-name }}\\nNamespace: ${{ steps.vars.outputs.namespace }}\\nImage Tag: ${{ needs.build.outputs.image-tag }}\\nBranch: ${{ github.ref_name }}\"
+              \"attachments\": [
+                {
+                  \"color\": \"$COLOR\",
+                  \"text\": \"*Deployment $STATUS*\\nService: ${{ inputs.service-name }}\\nEnvironment: ${{ steps.vars.outputs.env-name }}\\nNamespace: ${{ steps.vars.outputs.namespace }}\\nImage Tag: ${{ needs.build.outputs.image-tag }}\\nBranch: ${{ github.ref_name }}\"
+                }
+              ]
             }"
