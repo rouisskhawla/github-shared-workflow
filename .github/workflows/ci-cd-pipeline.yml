@@ -70,7 +70,7 @@ jobs:
       - name: Run frontend tests
         if: inputs.service-type == 'frontend'
         working-directory: ${{ inputs.service-dir }}
-        run: npm run test -- --run
+        run: npm run test
 
   build:
     runs-on: self-hosted
