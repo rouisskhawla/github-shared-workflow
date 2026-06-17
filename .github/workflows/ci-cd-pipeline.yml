@@ -206,15 +206,17 @@ jobs:
           kubectl get pods    -n ${{ steps.vars.outputs.namespace }}
           kubectl get svc     -n ${{ steps.vars.outputs.namespace }}
           kubectl get ingress -n ${{ steps.vars.outputs.namespace }}
-
+          
       - name: Slack Notification
         if: always()
         run: |
           STATUS="SUCCESS"
+          ICON="✅"
           COLOR="#36a64f"
       
           if [ "${{ job.status }}" != "success" ]; then
             STATUS="FAILED"
+            ICON="❌"
             COLOR="#ff0000"
           fi
       
@@ -226,7 +228,12 @@ jobs:
               \"attachments\": [
                 {
                   \"color\": \"$COLOR\",
-                  \"text\": \"*Deployment $STATUS*\\nService: ${{ inputs.service-name }}\\nEnvironment: ${{ steps.vars.outputs.env-name }}\\nNamespace: ${{ steps.vars.outputs.namespace }}\\nImage Tag: ${{ needs.build.outputs.image-tag }}\\nBranch: ${{ github.ref_name }}\"
+                  \"text\": \"*${ICON} Deployment ${STATUS}*\n
+                          Service: ${{ inputs.service-name }}\n
+                          Environment: ${{ steps.vars.outputs.env-name }}\n
+                          Namespace: ${{ steps.vars.outputs.namespace }}\n
+                          Image Tag: ${{ needs.build.outputs.image-tag }}\n
+                          Branch: ${{ github.ref_name }}\"
                 }
               ]
             }"
