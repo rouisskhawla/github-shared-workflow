@@ -1,8 +1,6 @@
 # github-shared-workflow
 
-Reusable GitHub Actions workflows that standardize CI/CD automation across repositories using shared **build**, **Docker**, and **Kubernetes deployment** pipelines.
-
-Each project calls the shared workflow with a few inputs. All build, packaging, and deployment logic lives here. In one place, versioned and maintained independently of the applications that use it.
+Reusable GitHub Actions workflow that standardizes CI/CD across repositories, including build, test, Docker image creation, Kubernetes deployment, and Slack notifications.
 
 ---
 
@@ -19,9 +17,7 @@ github-shared-workflow/
 
 ## Usage
 
-### Caller Workflow (in application repo)
-
-Backend service:
+### Backend Service
 
 ```yaml
 name: CI CD Pipeline Api Gateway
@@ -44,9 +40,11 @@ jobs:
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       KUBECONFIG_DEV:  ${{ secrets.KUBECONFIG_DEV }}
       KUBECONFIG_PROD: ${{ secrets.KUBECONFIG_PROD }}
-```
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+````
 
-Frontend service (add `service-type: frontend`):
+### Frontend Service
 
 ```yaml
 jobs:
@@ -62,6 +60,8 @@ jobs:
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       KUBECONFIG_DEV:  ${{ secrets.KUBECONFIG_DEV }}
       KUBECONFIG_PROD: ${{ secrets.KUBECONFIG_PROD }}
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
 ```
 
 Use `paths:` to scope each caller workflow to its own service directory. A push that only touches `services/books-service/` will not trigger any other service's pipeline.
@@ -70,91 +70,131 @@ Use `paths:` to scope each caller workflow to its own service directory. A push 
 
 ## Inputs
 
-| Input | Required | Default | Description |
-|---|---|---|---|
-| `service-name` | ✅ | — | Service name used in Helm release names |
-| `docker-image` | ✅ | — | Docker image name |
-| `service-dir` | ✅ | — | Path to the service within the repository |
-| `service-type` | ❌ | `backend` | `backend` (Maven/JDK) or `frontend` (Node.js/npm) |
-| `java-version` | ❌ | `17` | JDK version for backend builds |
+| Input          | Required | Default | Description                              |
+| -------------- | -------- | ------- | ---------------------------------------- |
+| `service-name` | ✅        | —       | Service identifier used for Helm release |
+| `docker-image` | ✅        | —       | Docker image name                        |
+| `service-dir`  | ✅        | —       | Path to service in repository            |
+| `service-type` | ❌        | backend | backend (Maven) or frontend (Node.js)    |
+| `java-version` | ❌        | 17      | JDK version for backend builds           |
+
+---
 
 ## Required Secrets
 
-Secrets must be defined in the **calling repository**, not in this one:
-
-| Secret | Description |
-|---|---|
-| `DOCKER_USERNAME` | Docker Hub username |
-| `DOCKER_PASSWORD` | Docker Hub password or access token |
-| `KUBECONFIG_DEV` | kubeconfig file content for the dev cluster |
-| `KUBECONFIG_PROD` | kubeconfig file content for the prod cluster |
-
----
-
-## Pipeline Jobs
-
-### `build`
-
-Runs version computation, application build, Docker build, and Docker push.
-
-**Version format:**
-
-| Branch | Example Tag |
-|---|---|
-| `dev` | `1.0.47-dev-a3f9c12` |
-| `main` | `1.0.47-a3f9c12` |
-
-**Backend build:** sets up JDK with `actions/setup-java@v4`, runs `mvn clean package -DskipTests`.
-
-**Frontend build:** sets up Node.js 24 with `actions/setup-node@v4`, runs `npm ci` then `npm run build --configuration development` (dev) or `--configuration production` (main).
-
-**Docker:** builds the image, pushes the versioned tag, and on `main` also tags and pushes `latest`.
-
-The computed image tag is published as a job output (`image-tag`) and consumed by the `deploy` job.
-
-### `deploy`
-
-Runs after `build` completes (`needs: build`). Reads the image tag from the `build` job output.
-
-- Selects the kubeconfig, Helm values file, and Kubernetes namespace based on the branch (`dev` → `dev`, `main` → `prod`)
-- Runs `helm upgrade --install` against the target cluster
-- Confirms the rollout with `kubectl rollout status --timeout=5m`
-
-**Manual approval gate:** the `deploy` job is assigned to a GitHub environment (`production` on `main`, `development` on `dev`). Requires human approval before deployments proceed.
+| Secret             | Description                        |
+| ------------------ | ---------------------------------- |
+| `DOCKER_USERNAME`  | Docker Hub username                |
+| `DOCKER_PASSWORD`  | Docker Hub token/password          |
+| `KUBECONFIG_DEV`   | Kubernetes dev cluster kubeconfig  |
+| `KUBECONFIG_PROD`  | Kubernetes prod cluster kubeconfig |
+| `SLACK_BOT_TOKEN`  | Slack bot token for notifications  |
+| `SLACK_CHANNEL_ID` | Slack channel ID for alerts        |
 
 ---
 
-## How Job Outputs Cross Job Boundaries
+## Pipeline Stages
 
-The `build` job publishes the version tag:
+1. Build
+2. Test
+3. Docker Build & Push
+4. Deploy (Helm)
+5. Slack Notification
+
+---
+
+## Build Stage
+
+* Backend: `mvn clean package`
+* Frontend: `npm ci && npm run build`
+* Produces versioned Docker image tag
+* Tags `latest` on `main` branch
+
+---
+
+## Test Stage
+
+* Backend: `mvn test`
+* Frontend: `npm ci && npm run test`
+* Fails pipeline if tests fail
+
+---
+
+## Deploy Stage
+
+* Deploys using Helm
+* Dev branch → `dev` namespace
+* Main branch → `prod` namespace
+* Uses image tag from build job output
+* Production deployments require GitHub Environment approval
+
+---
+
+## Slack Notifications
+
+Slack notification is sent after pipeline execution.
+
+### Behavior
+
+* Runs regardless of success/failure
+* Uses Slack Web API (`chat.postMessage`)
+* Color-coded status messages:
+
+  * Green → success
+  * Red → failure
+
+### Payload includes:
+
+* Service name
+* Branch
+* Status
+* Image tag
+* Pipeline result context
+
+### Required Secrets
+
+* `SLACK_BOT_TOKEN`
+* `SLACK_CHANNEL_ID`
+
+---
+
+## Pipeline Flow
+
+```
+Build
+  ↓
+Test
+  ↓
+Docker Build & Push
+  ↓
+Deploy (Helm)
+  ↓
+Manual Approval (prod)
+  ↓
+Slack Notification
+```
+
+---
+
+## Output Passing Between Jobs
+
+The build job exposes the image tag:
 
 ```yaml
 outputs:
   image-tag: ${{ steps.version.outputs.tag }}
 ```
 
-The `deploy` job consumes it:
+Deploy consumes it:
 
 ```yaml
-needs: build
-# ...
 --set global.imageTag=${{ needs.build.outputs.image-tag }}
 ```
-
-The two jobs run on separate runner instances, declared outputs are the only way to pass data between them.
-
----
-
-## Runner and Secrets Location
-
-- The **self-hosted runner** is registered in the **calling repository** (the application monorepo), not in this repository.
-- All **secrets** (`DOCKER_USERNAME`, etc.) are defined in the **calling repository**.
-- This repository holds no secrets and requires no runner registration.
 
 ---
 
 ## Related Repositories
 
-- [reliable-ci-cd-pipeline](https://github.com/rouisskhawla/reliable-ci-cd-pipeline) — application monorepo that calls this workflow
-- [jenkins-shared-library](https://github.com/rouisskhawla/jenkins-shared-library) — equivalent pattern for Jenkins
-- [gitlab-shared-template](https://github.com/rouisskhawla/gitlab-shared-template) — equivalent pattern for GitLab CI
+* [https://github.com/rouisskhawla/reliable-ci-cd-pipeline](https://github.com/rouisskhawla/reliable-ci-cd-pipeline)
+* [https://github.com/rouisskhawla/jenkins-shared-library](https://github.com/rouisskhawla/jenkins-shared-library)
+* [https://github.com/rouisskhawla/gitlab-shared-template](https://github.com/rouisskhawla/gitlab-shared-template)
