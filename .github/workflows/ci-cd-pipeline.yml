@@ -32,8 +32,56 @@ on:
         required: true
 
 jobs:
+  test:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up JDK
+        if: inputs.service-type == 'backend'
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ inputs.java-version }}
+          distribution: temurin
+
+      - name: Run backend tests
+        if: inputs.service-type == 'backend'
+        working-directory: ${{ inputs.service-dir }}
+        run: mvn test
+
+      - name: Publish backend test report
+        if: inputs.service-type == 'backend' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-${{ inputs.service-name }}
+          path: ${{ inputs.service-dir }}/target/surefire-reports/
+
+      - name: Set up Node
+        if: inputs.service-type == 'frontend'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install dependencies (frontend)
+        if: inputs.service-type == 'frontend'
+        working-directory: ${{ inputs.service-dir }}
+        run: npm ci
+
+      - name: Run frontend tests
+        if: inputs.service-type == 'frontend'
+        working-directory: ${{ inputs.service-dir }}
+        run: npx vitest run --reporter=junit --outputFile=test-results/junit.xml
+
+      - name: Publish frontend test report
+        if: inputs.service-type == 'frontend' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-${{ inputs.service-name }}
+          path: ${{ inputs.service-dir }}/test-results/
+
   build:
     runs-on: self-hosted
+    needs: test
     outputs:
       image-tag: ${{ steps.version.outputs.tag }}
     steps:
@@ -51,7 +99,7 @@ jobs:
           fi
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
           echo "Computed version: ${TAG}"
-      
+
       - name: Set up JDK
         if: inputs.service-type == 'backend'
         uses: actions/setup-java@v4
@@ -112,13 +160,13 @@ jobs:
         id: vars
         run: |
           if [ "${{ github.ref_name }}" == "main" ]; then
-            echo "namespace=prod"            >> $GITHUB_OUTPUT
+            echo "namespace=prod"               >> $GITHUB_OUTPUT
             echo "values-file=values-prod.yaml" >> $GITHUB_OUTPUT
-            echo "env-name=PRODUCTION"       >> $GITHUB_OUTPUT
+            echo "env-name=PRODUCTION"          >> $GITHUB_OUTPUT
           elif [ "${{ github.ref_name }}" == "dev" ]; then
-            echo "namespace=dev"             >> $GITHUB_OUTPUT
+            echo "namespace=dev"                >> $GITHUB_OUTPUT
             echo "values-file=values-dev.yaml"  >> $GITHUB_OUTPUT
-            echo "env-name=DEVELOPMENT"      >> $GITHUB_OUTPUT
+            echo "env-name=DEVELOPMENT"         >> $GITHUB_OUTPUT
           else
             echo "Unsupported branch: ${{ github.ref_name }}"
             exit 1
@@ -161,7 +209,7 @@ jobs:
           kubectl get pods    -n ${{ steps.vars.outputs.namespace }}
           kubectl get svc     -n ${{ steps.vars.outputs.namespace }}
           kubectl get ingress -n ${{ steps.vars.outputs.namespace }}
-        
+
       - name: Slack Notification
         if: always()
         run: |
