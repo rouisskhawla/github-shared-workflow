@@ -179,8 +179,6 @@ jobs:
           fi
           chmod 600 $HOME/.kube/config
 
-      - name: Verify cluster connection
-        run: kubectl cluster-info
 
       - name: Helm deploy
         run: |
