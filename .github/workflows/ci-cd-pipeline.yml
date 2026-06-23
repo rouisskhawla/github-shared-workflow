@@ -182,11 +182,6 @@ jobs:
       - name: Verify cluster connection
         run: kubectl cluster-info
 
-      - name: Create namespace if not exists
-        run: |
-          kubectl create namespace ${{ steps.vars.outputs.namespace }} \
-            --dry-run=client -o yaml | kubectl apply -f -
-
       - name: Helm deploy
         run: |
           helm upgrade --install ${{ inputs.service-name }} charts/microservice \
