@@ -93,6 +93,32 @@ Use `paths:` to scope each caller workflow to its own service directory. A push 
 
 ---
 
+## Slack Integration
+
+The reusable workflow sends a Slack notification after every deployment using the Slack Web API (`chat.postMessage`). Notifications are sent regardless of whether the deployment succeeds or fails and include:
+
+* Deployment status (Success/Failed)
+* Service name
+* Environment
+* Kubernetes namespace
+* Docker image tag
+* Branch
+
+### Required Secrets
+
+| Secret             | Description                                   |
+| ------------------ | --------------------------------------------- |
+| `SLACK_BOT_TOKEN`  | Slack Bot User OAuth Token (`xoxb-...`)       |
+| `SLACK_CHANNEL_ID` | Slack channel ID where notifications are sent |
+
+### Successful Deployment Slack Message
+![Successful deploy](docs/successful.png)
+
+### Failed Deployment Slack Message
+![Failed deploy](docs/failed.png)
+
+---
+
 ## Pipeline Stages
 
 1. Build
