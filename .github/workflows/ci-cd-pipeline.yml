@@ -48,6 +48,9 @@ jobs:
       service-type: ${{ inputs.service-type }}
       java-version: ${{ inputs.java-version }}
       node-version: ${{ inputs.node-version }}
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
   build:
     runs-on: self-hosted
