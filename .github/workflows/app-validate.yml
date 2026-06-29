@@ -21,9 +21,14 @@ on:
         required: false
         type: string
         default: '24'
+    secrets:
+      SONAR_TOKEN:
+        required: true
+      SONAR_HOST_URL:
+        required: true
 
 jobs:
-  validate:
+  test:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
@@ -57,3 +62,75 @@ jobs:
         if: inputs.service-type == 'frontend'
         working-directory: ${{ inputs.service-dir }}
         run: npm run test
+
+  sonar:
+    needs: test
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Set up JDK
+        if: inputs.service-type == 'backend'
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ inputs.java-version }}
+          distribution: temurin
+
+      - name: Cache Maven packages
+        if: inputs.service-type == 'backend'
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Cache SonarQube packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Run tests and analyze (backend)
+        if: inputs.service-type == 'backend'
+        working-directory: ${{ inputs.service-dir }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+            -Dsonar.projectKey=rouisskhawla_reliable-ci-cd-pipeline_b9bb1915-903b-4ef0-a0ac-1c4df9e102b2 \
+            -Dsonar.projectName='${{ inputs.service-name }}'
+
+      - name: Publish backend test report
+        if: inputs.service-type == 'backend' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-${{ inputs.service-name }}
+          path: ${{ inputs.service-dir }}/target/surefire-reports/
+
+      - name: Set up Node
+        if: inputs.service-type == 'frontend'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Install dependencies
+        if: inputs.service-type == 'frontend'
+        working-directory: ${{ inputs.service-dir }}
+        run: npm ci
+
+      - name: Analyze (frontend)
+        if: inputs.service-type == 'frontend'
+        uses: SonarSource/sonarqube-scan-action@master
+        with:
+          projectBaseDir: ${{ inputs.service-dir }}
+          args: >
+            -Dsonar.projectKey=rouisskhawla_reliable-ci-cd-pipeline_b9bb1915-903b-4ef0-a0ac-1c4df9e102b2
+            -Dsonar.projectName=${{ inputs.service-name }}
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
