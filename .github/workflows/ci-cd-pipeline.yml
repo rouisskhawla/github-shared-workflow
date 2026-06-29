@@ -34,55 +34,25 @@ on:
         required: true
       SLACK_CHANNEL_ID:
         required: true
+
         
 jobs:
-  test:
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up JDK
-        if: inputs.service-type == 'backend'
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ inputs.java-version }}
-          distribution: temurin
-
-      - name: Run backend tests
-        if: inputs.service-type == 'backend'
-        working-directory: ${{ inputs.service-dir }}
-        run: mvn test
-
-      - name: Publish backend test report
-        if: inputs.service-type == 'backend' && always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-report-${{ inputs.service-name }}
-          path: ${{ inputs.service-dir }}/target/surefire-reports/
-
-      - name: Set up Node
-        if: inputs.service-type == 'frontend'
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Install dependencies (frontend)
-        if: inputs.service-type == 'frontend'
-        working-directory: ${{ inputs.service-dir }}
-        run: npm ci
-
-      - name: Run frontend tests
-        if: inputs.service-type == 'frontend'
-        working-directory: ${{ inputs.service-dir }}
-        run: npm run test
+  validate:
+    uses: ./.github/workflows/app-validate.yml
+    with:
+      service-name: ${{ inputs.service-name }}
+      service-dir: ${{ inputs.service-dir }}
+      service-type: ${{ inputs.service-type }}
+      java-version: ${{ inputs.java-version }}
+      node-version: ${{ inputs.node-version }}
 
   build:
     runs-on: self-hosted
-    needs: test
+    needs: validate
     outputs:
       image-tag: ${{ steps.version.outputs.tag }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Compute version
         id: version
@@ -113,7 +83,7 @@ jobs:
         if: inputs.service-type == 'frontend'
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: ${{ inputs.node-version }}
 
       - name: Install dependencies (frontend)
         if: inputs.service-type == 'frontend'
