@@ -93,23 +93,16 @@ jobs:
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
-      - name: Run tests and analyze (backend)
+      - name: Run SonarQube analysis (backend)
         if: inputs.service-type == 'backend'
         working-directory: ${{ inputs.service-dir }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         run: |
-          mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+          mvn -B verify sonar:sonar \
             -Dsonar.projectKey=rouisskhawla_reliable-ci-cd-pipeline_b9bb1915-903b-4ef0-a0ac-1c4df9e102b2 \
-            -Dsonar.projectName='${{ inputs.service-name }}'
-
-      - name: Publish backend test report
-        if: inputs.service-type == 'backend' && always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-report-${{ inputs.service-name }}
-          path: ${{ inputs.service-dir }}/target/surefire-reports/
+            -Dsonar.projectName="${{ inputs.service-name }}"
 
       - name: Set up Node
         if: inputs.service-type == 'frontend'
@@ -122,7 +115,7 @@ jobs:
         working-directory: ${{ inputs.service-dir }}
         run: npm ci
 
-      - name: Analyze (frontend)
+      - name: Run SonarQube analysis (frontend)
         if: inputs.service-type == 'frontend'
         uses: SonarSource/sonarqube-scan-action@master
         with:
