@@ -9,6 +9,9 @@ on:
       service-dir:
         required: true
         type: string
+      service-key:
+        required: true
+        type: string
       service-type:
         required: false
         type: string
@@ -91,7 +94,7 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         run: |
           mvn verify sonar:sonar \
-            -Dsonar.projectKey="${{ inputs.service-name }}" \
+            -Dsonar.projectKey="${{ inputs.service-key }}" \
             -Dsonar.projectName="${{ inputs.service-name }}" \
             -Dsonar.qualitygate.wait=true
 
@@ -118,7 +121,7 @@ jobs:
         with:
           projectBaseDir: ${{ inputs.service-dir }}
           args: >
-            -Dsonar.projectKey="${{ inputs.service-name }}"
+            -Dsonar.projectKey="${{ inputs.service-key }}"
             -Dsonar.projectName="${{ inputs.service-name }}"
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
             -Dsonar.qualitygate.wait=true

@@ -6,20 +6,27 @@ on:
       service-name:
         required: true
         type: string
-      docker-image:
-        required: true
-        type: string
       service-dir:
         required: true
         type: string
-      java-version:
-        required: false
+      service-key:
+        required: true
         type: string
-        default: '17'
       service-type:
         required: false
         type: string
         default: 'backend'
+      java-version:
+        required: false
+        type: string
+        default: '17'
+      node-version:
+        required: false
+        type: string
+        default: '24'
+      docker-image:
+        required: true
+        type: string
 
     secrets:
       DOCKER_USERNAME:
@@ -46,6 +53,7 @@ jobs:
       service-name: ${{ inputs.service-name }}
       service-dir: ${{ inputs.service-dir }}
       service-type: ${{ inputs.service-type }}
+      service-key: ${{ inputs.service-key }}
       java-version: ${{ inputs.java-version }}
       node-version: ${{ inputs.node-version }}
     secrets:
