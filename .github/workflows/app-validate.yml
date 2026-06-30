@@ -103,7 +103,7 @@ jobs:
         if: inputs.service-type == 'frontend'
         working-directory: ${{ inputs.service-dir }}
         run: |
-          npm run test -- --watch=false --browsers=ChromeHeadless --code-coverage
+          npm run test -- --no-watch --coverage
           
       - name: Run SonarQube analysis (frontend)
         if: inputs.service-type == 'frontend'
