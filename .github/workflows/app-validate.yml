@@ -107,6 +107,8 @@ jobs:
         working-directory: ${{ inputs.service-dir }}
         run: |
           npm run test -- --no-watch --coverage
+          ls -R
+          find . -name "lcov.info"
           
       - name: Run SonarQube analysis (frontend)
         if: inputs.service-type == 'frontend'
