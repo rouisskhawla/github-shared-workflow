@@ -53,14 +53,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
-
-      - name: Debug setup-node output
-        if: inputs.service-type == 'frontend'
-        run: |
-          echo "node-version output: ${{ steps.setup-node.outputs.node-version }}"
-          echo "RUNNER_TOOL_CACHE: $RUNNER_TOOL_CACHE"
-          ls -la "$RUNNER_TOOL_CACHE/node" 2>/dev/null || echo "No node in tool cache"
-
+          
       - name: Install dependencies
         if: inputs.service-type == 'frontend'
         working-directory: ${{ inputs.service-dir }}
@@ -94,8 +87,8 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         run: |
           mvn verify sonar:sonar \
-            -Dsonar.projectKey="${{ inputs.service-key }}" \
-            -Dsonar.projectName="${{ inputs.service-name }}" \
+            -Dsonar.projectKey=${{ inputs.service-key }} \
+            -Dsonar.projectName=${{ inputs.service-name }} \
             -Dsonar.qualitygate.wait=true
 
       - name: Set up Node
@@ -117,12 +110,12 @@ jobs:
           
       - name: Run SonarQube analysis (frontend)
         if: inputs.service-type == 'frontend'
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@v6
         with:
           projectBaseDir: ${{ inputs.service-dir }}
           args: >
-            -Dsonar.projectKey="${{ inputs.service-key }}"
-            -Dsonar.projectName="${{ inputs.service-name }}"
+            -Dsonar.projectKey=${{ inputs.service-key }}
+            -Dsonar.projectName=${{ inputs.service-name }}
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
             -Dsonar.qualitygate.wait=true
         env:
