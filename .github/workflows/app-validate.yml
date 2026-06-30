@@ -50,13 +50,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
-          
-      - name: Debug Node version
+
+      - name: Debug setup-node output
         if: inputs.service-type == 'frontend'
         run: |
-          which node
-          node --version
-          echo "PATH: $PATH"
+          echo "node-version output: ${{ steps.setup-node.outputs.node-version }}"
+          echo "RUNNER_TOOL_CACHE: $RUNNER_TOOL_CACHE"
+          ls -la "$RUNNER_TOOL_CACHE/node" 2>/dev/null || echo "No node in tool cache"
 
       - name: Install dependencies
         if: inputs.service-type == 'frontend'
