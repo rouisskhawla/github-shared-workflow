@@ -50,6 +50,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
+          
+      - name: Debug Node version
+        if: inputs.service-type == 'frontend'
+        run: |
+          which node
+          node --version
+          echo "PATH: $PATH"
 
       - name: Install dependencies
         if: inputs.service-type == 'frontend'
