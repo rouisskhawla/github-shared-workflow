@@ -32,8 +32,6 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up JDK
         if: inputs.service-type == 'backend'
@@ -70,7 +68,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          
+
       - name: Set up JDK
         if: inputs.service-type == 'backend'
         uses: actions/setup-java@v4
@@ -85,9 +83,10 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         run: |
-          mvn -B verify sonar:sonar \
-            -Dsonar.projectKey=rouisskhawla_reliable-ci-cd-pipeline_b9bb1915-903b-4ef0-a0ac-1c4df9e102b2 \
-            -Dsonar.projectName="${{ inputs.service-name }}"
+          mvn verify sonar:sonar \
+            -Dsonar.projectKey="${{ inputs.service-name }}" \
+            -Dsonar.projectName="${{ inputs.service-name }}" \
+            -Dsonar.qualitygate.wait=true
 
       - name: Set up Node
         if: inputs.service-type == 'frontend'
@@ -100,15 +99,22 @@ jobs:
         working-directory: ${{ inputs.service-dir }}
         run: npm ci
 
+      - name: Run tests with coverage
+        if: inputs.service-type == 'frontend'
+        working-directory: ${{ inputs.service-dir }}
+        run: |
+          npm run test -- --watch=false --browsers=ChromeHeadless --code-coverage
+          
       - name: Run SonarQube analysis (frontend)
         if: inputs.service-type == 'frontend'
-        uses: SonarSource/sonarqube-scan-action@master
+        uses: SonarSource/sonarqube-scan-action@v5
         with:
           projectBaseDir: ${{ inputs.service-dir }}
           args: >
-            -Dsonar.projectKey=rouisskhawla_reliable-ci-cd-pipeline_b9bb1915-903b-4ef0-a0ac-1c4df9e102b2
-            -Dsonar.projectName=${{ inputs.service-name }}
+            -Dsonar.projectKey="${{ inputs.service-name }}"
+            -Dsonar.projectName="${{ inputs.service-name }}"
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.qualitygate.wait=true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
