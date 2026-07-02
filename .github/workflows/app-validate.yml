@@ -29,6 +29,8 @@ on:
         required: true
       SONAR_HOST_URL:
         required: true
+      NVD_API_KEY:
+        required: true
 
 jobs:
   test:
@@ -53,7 +55,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
-          
+
       - name: Install dependencies
         if: inputs.service-type == 'frontend'
         working-directory: ${{ inputs.service-dir }}
@@ -109,7 +111,7 @@ jobs:
           npm run test -- --no-watch --coverage
           ls -R
           find . -name "lcov.info"
-          
+
       - name: Run SonarQube analysis (frontend)
         if: inputs.service-type == 'frontend'
         uses: SonarSource/sonarqube-scan-action@v6
@@ -123,3 +125,46 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+  dependency-scan:
+    needs: test
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        if: inputs.service-type == 'backend'
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ inputs.java-version }}
+          distribution: temurin
+
+      - name: OWASP Dependency Check (backend)
+        if: inputs.service-type == 'backend'
+        working-directory: ${{ inputs.service-dir }}
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: mvn dependency-check:check
+
+      - name: Upload OWASP report (backend)
+        if: inputs.service-type == 'backend' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owasp-report-${{ inputs.service-name }}
+          path: ${{ inputs.service-dir }}/target/dependency-check-report.html
+
+      - name: Set up Node
+        if: inputs.service-type == 'frontend'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Install dependencies (frontend)
+        if: inputs.service-type == 'frontend'
+        working-directory: ${{ inputs.service-dir }}
+        run: npm ci
+
+      - name: npm audit (frontend)
+        if: inputs.service-type == 'frontend'
+        working-directory: ${{ inputs.service-dir }}
+        run: npm audit --audit-level=high
