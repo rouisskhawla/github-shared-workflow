@@ -45,6 +45,8 @@ on:
         required: true
       SONAR_HOST_URL:
         required: true
+      NVD_API_KEY:
+        required: true
 
 jobs:
   validate:
@@ -59,6 +61,7 @@ jobs:
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
   build:
     runs-on: self-hosted
