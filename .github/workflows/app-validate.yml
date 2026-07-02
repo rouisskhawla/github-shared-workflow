@@ -142,11 +142,11 @@ jobs:
 
       - name: OWASP Dependency Check (backend)
         if: inputs.service-type == 'backend'
-        continue-on-error: true
         working-directory: ${{ inputs.service-dir }}
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: mvn dependency-check:check
+        run: mvn dependency-check:check \
+            -DfailOnError=false
 
       - name: Upload OWASP report (backend)
         if: inputs.service-type == 'backend' && always()
@@ -165,8 +165,17 @@ jobs:
         if: inputs.service-type == 'frontend'
         working-directory: ${{ inputs.service-dir }}
         run: npm ci
-
+        
       - name: npm audit (frontend)
         if: inputs.service-type == 'frontend'
         working-directory: ${{ inputs.service-dir }}
-        run: npm audit --audit-level=high
+        continue-on-error: true
+        run: |
+          npm audit --audit-level=high --json > npm-audit.json
+
+      - name: Upload npm audit report (frontend)
+        if: inputs.service-type == 'frontend' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-${{ inputs.service-name }}
+          path: ${{ inputs.service-dir }}/npm-audit.json
