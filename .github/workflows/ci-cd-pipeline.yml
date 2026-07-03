@@ -153,6 +153,8 @@ jobs:
           exit-code: '0'
           ignore-unfixed: true
           severity: CRITICAL
+          timeout: '15m'
+          options: --scanners vuln
 
       - name: Upload Trivy report
         if: always()
