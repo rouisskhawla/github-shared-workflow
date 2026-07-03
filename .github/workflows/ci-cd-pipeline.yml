@@ -154,7 +154,7 @@ jobs:
           ignore-unfixed: true
           severity: CRITICAL
           timeout: '15m'
-          options: --scanners vuln
+          scanners: vuln
 
       - name: Upload Trivy report
         if: always()
