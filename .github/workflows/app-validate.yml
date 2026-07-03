@@ -145,8 +145,7 @@ jobs:
         working-directory: ${{ inputs.service-dir }}
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: mvn dependency-check:check \
-            -DfailOnError=false
+        run: mvn dependency-check:check -DfailOnError=false
 
       - name: Upload OWASP report (backend)
         if: inputs.service-type == 'backend' && always()
