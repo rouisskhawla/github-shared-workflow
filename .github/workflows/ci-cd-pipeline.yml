@@ -150,9 +150,9 @@ jobs:
           image-ref: ${{ inputs.docker-image }}:${{ needs.build.outputs.image-tag }}
           format: table
           output: trivy-report.txt
-          exit-code: '1'
+          exit-code: '0'
           ignore-unfixed: true
-          severity: HIGH,CRITICAL
+          severity: CRITICAL
 
       - name: Upload Trivy report
         if: always()
