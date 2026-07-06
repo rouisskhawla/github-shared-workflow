@@ -1,226 +1,134 @@
 # github-shared-workflow
 
-Reusable GitHub Actions workflow that standardizes CI/CD across repositories, including build, test, Docker image creation, Kubernetes deployment, and Slack notifications.
+Reusable GitHub Actions CI/CD workflows used to standardize build, test, security scanning, Docker image creation, and Kubernetes deployment across multiple repositories.
+
+This repository acts as a **central CI/CD pipeline engine** consumed by application repositories via GitHub Actions reusable workflows.
+
+---
+
+## Architecture
+
+```text
+Application Repo
+   └── calls reusable workflow
+          ↓
+github-shared-workflow
+   ├── validate (tests, Sonar, dependency checks)
+   ├── build (Maven / Node)
+   ├── docker build & push
+   ├── security scan (Trivy)
+   ├── deploy (Helm to Kubernetes)
+   └── notifications (Slack)
+```
 
 ---
 
 ## Repository Structure
 
-```
-github-shared-workflow/
-└── .github/
-    └── workflows/
-        └── ci-cd-pipeline.yml    # The reusable workflow
+```text
+.github/workflows/
+├── ci-cd-pipeline.yml   # Main reusable CI/CD pipeline
+├── app-validate.yml     # Testing + quality + dependency scanning
+└── terraform-validate.yml (infra validation)
 ```
 
 ---
 
-## Usage
+## How It Works
 
-### Backend Service
-
-```yaml
-name: CI CD Pipeline Api Gateway
-
-on:
-  push:
-    branches: [main, dev]
-    paths:
-      - 'services/api-gateway/**'
-
-jobs:
-  pipeline:
-    uses: username/github-shared-workflow/.github/workflows/ci-cd-pipeline.yml@main
-    with:
-      service-name: api-gateway
-      docker-image: username/ci-cd-gateway
-      service-dir:  services/api-gateway
-    secrets:
-      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      KUBECONFIG_DEV:  ${{ secrets.KUBECONFIG_DEV }}
-      KUBECONFIG_PROD: ${{ secrets.KUBECONFIG_PROD }}
-      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-      SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
-````
-
-### Frontend Service
+This repo is **not a standalone pipeline**.
+It is executed by other repositories using:
 
 ```yaml
 jobs:
   pipeline:
     uses: username/github-shared-workflow/.github/workflows/ci-cd-pipeline.yml@main
-    with:
-      service-name: bookstore-frontend
-      docker-image: username/ci-cd-frontend
-      service-dir:  services/bookstore-frontend
-      service-type: frontend
-    secrets:
-      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      KUBECONFIG_DEV:  ${{ secrets.KUBECONFIG_DEV }}
-      KUBECONFIG_PROD: ${{ secrets.KUBECONFIG_PROD }}
-      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-      SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
 ```
 
-Use `paths:` to scope each caller workflow to its own service directory. A push that only touches `services/books-service/` will not trigger any other service's pipeline.
+Each application defines:
 
----
-
-## Inputs
-
-| Input          | Required | Default | Description                              |
-| -------------- | -------- | ------- | ---------------------------------------- |
-| `service-name` | ✅        | —       | Service identifier used for Helm release |
-| `docker-image` | ✅        | —       | Docker image name                        |
-| `service-dir`  | ✅        | —       | Path to service in repository            |
-| `service-type` | ❌        | backend | backend (Maven) or frontend (Node.js)    |
-| `java-version` | ❌        | 17      | JDK version for backend builds           |
-
----
-
-## Required Secrets
-
-| Secret             | Description                        |
-| ------------------ | ---------------------------------- |
-| `DOCKER_USERNAME`  | Docker Hub username                |
-| `DOCKER_PASSWORD`  | Docker Hub token/password          |
-| `KUBECONFIG_DEV`   | Kubernetes dev cluster kubeconfig  |
-| `KUBECONFIG_PROD`  | Kubernetes prod cluster kubeconfig |
-| `SLACK_BOT_TOKEN`  | Slack bot token for notifications  |
-| `SLACK_CHANNEL_ID` | Slack channel ID for alerts        |
-
----
-
-## Slack Integration
-
-The reusable workflow sends a Slack notification after every deployment using the Slack Web API (`chat.postMessage`). Notifications are sent regardless of whether the deployment succeeds or fails and include:
-
-* Deployment status (Success/Failed)
-* Service name
-* Environment
-* Kubernetes namespace
-* Docker image tag
-* Branch
-
-### Required Secrets
-
-| Secret             | Description                                   |
-| ------------------ | --------------------------------------------- |
-| `SLACK_BOT_TOKEN`  | Slack Bot User OAuth Token (`xoxb-...`)       |
-| `SLACK_CHANNEL_ID` | Slack channel ID where notifications are sent |
-
-### Successful Deployment Slack Message
-![Successful deploy](docs/successful.png)
-
-### Failed Deployment Slack Message
-![Failed deploy](docs/failed.png)
-
----
-
-## Pipeline Stages
-
-1. Build
-2. Test
-3. Docker Build & Push
-4. Deploy (Helm)
-5. Slack Notification
-
----
-
-## Build Stage
-
-* Backend: `mvn clean package`
-* Frontend: `npm ci && npm run build`
-* Produces versioned Docker image tag
-* Tags `latest` on `main` branch
-
----
-
-## Test Stage
-
-* Backend: `mvn test`
-* Frontend: `npm ci && npm run test`
-* Fails pipeline if tests fail
-
----
-
-## Deploy Stage
-
-* Deploys using Helm
-* Dev branch → `dev` namespace
-* Main branch → `prod` namespace
-* Uses image tag from build job output
-* Production deployments require GitHub Environment approval
-
----
-
-## Slack Notifications
-
-Slack notification is sent after pipeline execution.
-
-### Behavior
-
-* Runs regardless of success/failure
-* Uses Slack Web API (`chat.postMessage`)
-* Color-coded status messages:
-
-  * Green → success
-  * Red → failure
-
-### Payload includes:
-
-* Service name
-* Branch
-* Status
-* Image tag
-* Pipeline result context
-
-### Required Secrets
-
-* `SLACK_BOT_TOKEN`
-* `SLACK_CHANNEL_ID`
+* service name
+* source directory
+* Docker image
+* build type (backend/frontend)
 
 ---
 
 ## Pipeline Flow
 
-```
-Build
-  ↓
-Test
-  ↓
-Docker Build & Push
-  ↓
-Deploy (Helm)
-  ↓
-Manual Approval (prod)
-  ↓
-Slack Notification
+```text
+1. Test & Quality
+   - Unit tests
+   - SonarQube analysis
+   - Dependency scanning (OWASP / npm audit)
+
+2. Build
+   - Maven / Node build
+   - Versioning
+
+3. Container
+   - Docker build & push
+
+4. Security
+   - Trivy image scan
+
+5. Deploy
+   - Helm deployment to Kubernetes
+   - Dev / Prod separation
+
+6. Notify
+   - Slack notification (success/failure)
 ```
 
 ---
 
-## Output Passing Between Jobs
+## Inputs
 
-The build job exposes the image tag:
+| Input        | Required | Description                  |
+| ------------ | -------- | ---------------------------- |
+| service-name | Yes      | Service / Helm release name  |
+| service-dir  | Yes      | Source code directory        |
+| service-key  | Yes      | SonarQube project key        |
+| docker-image | Yes      | Docker image repository      |
+| service-type | No       | backend (default) / frontend |
 
-```yaml
-outputs:
-  image-tag: ${{ steps.version.outputs.tag }}
-```
+---
 
-Deploy consumes it:
+## Secrets Required
 
-```yaml
---set global.imageTag=${{ needs.build.outputs.image-tag }}
-```
+* Docker credentials
+* Kubernetes kubeconfig (dev/prod)
+* SonarQube token + URL
+* NVD API key (OWASP scans)
+* Slack bot token + channel ID
+
+---
+
+## Deployment Strategy
+
+| Branch | Environment | Namespace |
+| ------ | ----------- | --------- |
+| dev    | Development | dev       |
+| main   | Production  | prod      |
+
+Production deployments require GitHub Environment approval.
+
+---
+
+## Key Features
+
+* Reusable CI/CD across multiple repositories
+* Standardized build and deployment process
+* Security scanning (dependency + container)
+* Kubernetes-based deployments using Helm
+* Slack notifications for visibility
+* Separation of dev and production environments
 
 ---
 
 ## Related Repositories
 
-* [https://github.com/rouisskhawla/reliable-ci-cd-pipeline](https://github.com/rouisskhawla/reliable-ci-cd-pipeline)
-* [https://github.com/rouisskhawla/jenkins-shared-library](https://github.com/rouisskhawla/jenkins-shared-library)
-* [https://github.com/rouisskhawla/gitlab-shared-template](https://github.com/rouisskhawla/gitlab-shared-template)
+* [https://github.com/rouisskhawla/jenkins-shared-library](https://github.com/rouisskhawla/jenkins-shared-library) - Reusable Jenkins CI/CD library
+* [https://github.com/rouisskhawla/gitlab-shared-template](https://github.com/rouisskhawla/gitlab-shared-template) - Reusable GitLab CI/CD templates
+* [https://github.com/rouisskhawla/reliable-ci-cd-pipeline](https://github.com/rouisskhawla/reliable-ci-cd-pipeline) - Code repository
+* [https://github.com/rouisskhawla/devops-infrastructure-terraform](https://github.com/rouisskhawla/devops-infrastructure-terraform) - Kubernetes infrastructure with Terraform and CI/CD integration
