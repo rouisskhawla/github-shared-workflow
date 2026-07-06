@@ -150,7 +150,7 @@ jobs:
           image-ref: ${{ inputs.docker-image }}:${{ needs.build.outputs.image-tag }}
           format: table
           output: trivy-report.txt
-          exit-code: '0'
+          exit-code: '1'
           ignore-unfixed: true
           severity: CRITICAL
           timeout: '30m'

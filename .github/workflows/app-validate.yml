@@ -69,7 +69,6 @@ jobs:
   sonar:
     needs: test
     runs-on: self-hosted
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
@@ -169,7 +168,6 @@ jobs:
       - name: npm audit (frontend)
         if: inputs.service-type == 'frontend'
         working-directory: ${{ inputs.service-dir }}
-        continue-on-error: true
         run: |
           npm audit --audit-level=high --json > npm-audit.json
 
