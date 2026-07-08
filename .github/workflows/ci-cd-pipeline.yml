@@ -23,7 +23,7 @@ on:
       node-version:
         required: false
         type: string
-        default: '24'
+        default: '24.18.0'
       docker-image:
         required: true
         type: string
