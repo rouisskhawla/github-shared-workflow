@@ -3,6 +3,10 @@ name: Reusable CI CD Pipeline
 on:
   workflow_call:
     inputs:
+      skip-validation:
+        required: false
+        type: boolean
+        default: false
       service-name:
         required: true
         type: string
@@ -50,6 +54,7 @@ on:
 
 jobs:
   validate:
+    if: ${{ !inputs.skip-validation }}
     uses: ./.github/workflows/app-validate.yml
     with:
       service-name: ${{ inputs.service-name }}
@@ -66,6 +71,7 @@ jobs:
   build:
     runs-on: self-hosted
     needs: validate
+    if: ${{ !cancelled() && (needs.validate.result == 'success' || needs.validate.result == 'skipped') }}
     outputs:
       image-tag: ${{ steps.version.outputs.tag }}
     steps:
