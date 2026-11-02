@@ -142,6 +142,7 @@ jobs:
 
   image-scan:
     runs-on: self-hosted
+    if: ${{ !inputs.skip-validation }}
     needs: build
     steps:
       - name: Docker login
@@ -179,7 +180,8 @@ jobs:
   
   deploy:
     runs-on: self-hosted
-    needs: image-scan
+    needs: [build, image-scan]
+    if: ${{ !cancelled() && (needs.build.result == 'success') && (needs.image-scan.result == 'success' || needs.image-scan.result == 'skipped') }}
     environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
     steps:
       - uses: actions/checkout@v4
